@@ -16,7 +16,7 @@ public class MainLayout extends AppLayout {
     }
 
     private void createHeader() {
-        H1 logo = new H1("My ERP System");
+        H1 logo = new H1("Ecommerce Resource Planning System");
         logo.addClassNames("text-l", "m-m");
 
         HorizontalLayout header = new HorizontalLayout(
