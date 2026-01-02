@@ -8,7 +8,14 @@
 *.iml
 .DS_Store
 
-# The following files are generated/updated by vaadin-maven-plugin
+# Logs (Don't upload error logs)
+*.log
+
+# Packaged files (Don't upload libraries dropped in root)
+*.jar
+*.war
+
+# Vaadin Frontend generation (Keep these!)
 node_modules/
 src/main/frontend/generated/
 vite.generated.ts

@@ -1,0 +1,38 @@
+package com.example.examplefeature;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "orders") // Maps to your SQL 'orders' table
+public class Order {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long orderId;
+
+    @Column(name = "order_number")
+    private String orderNumber;
+
+    @Column(name = "order_status")
+    private String orderStatus;
+
+    @Column(name = "total_amount")
+    private Double totalAmount;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    // Getters and Setters
+    public Long getId() { return orderId; }
+    public void setId(Long id) { this.orderId = id; }
+
+    public String getOrderNumber() { return orderNumber; }
+    public void setOrderNumber(String orderNumber) { this.orderNumber = orderNumber; }
+
+    public String getOrderStatus() { return orderStatus; }
+    public void setOrderStatus(String orderStatus) { this.orderStatus = orderStatus; }
+
+    public Double getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(Double totalAmount) { this.totalAmount = totalAmount; }
+}
