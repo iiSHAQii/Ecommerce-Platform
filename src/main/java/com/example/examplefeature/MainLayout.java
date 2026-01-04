@@ -43,5 +43,10 @@ public class MainLayout extends AppLayout {
         );
 
         addToDrawer(layout);
+        addToDrawer(new VerticalLayout(
+                new RouterLink("Dashboard", DashboardView.class),
+                new RouterLink("Orders", OrderView.class),      // <--- NEW
+                new RouterLink("Customers", CustomerView.class) // <--- NEW
+        ));
     }
 }

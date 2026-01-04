@@ -4,102 +4,136 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.data.value.ValueChangeMode;
+import com.vaadin.flow.component.textfield.NumberField;
+import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import jakarta.annotation.PostConstruct;
+import jakarta.annotation.security.PermitAll;
 
-//@Route("orders")
+import java.time.LocalDateTime;
+
 @Route(value = "orders", layout = MainLayout.class)
+@PageTitle("Orders | Ecommerce ERP")
+@PermitAll
 public class OrderView extends VerticalLayout {
 
     private final OrderRepository orderRepository;
-    private final Grid<Order> grid = new Grid<>(Order.class);
-    private final TextField filterText = new TextField();
+    private final CustomerRepository customerRepository;
+    private final Grid<Order> grid = new Grid<>(Order.class, false);
+    private final Binder<Order> binder = new Binder<>(Order.class);
+    private Order currentOrder;
 
-    public OrderView(OrderRepository orderRepository) {
+    public OrderView(OrderRepository orderRepository, CustomerRepository customerRepository) {
         this.orderRepository = orderRepository;
+        this.customerRepository = customerRepository;
 
         setSizeFull();
-        add(new H2("Order Management System"));
-
         configureGrid();
-        configureFilter();
 
-        add(filterText, grid);
+        Button addBtn = new Button("New Order");
+        addBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        addBtn.addClickListener(e -> openEditor(new Order()));
+
+        add(addBtn, grid);
+        refreshGrid();
     }
 
     private void configureGrid() {
         grid.setSizeFull();
-        grid.setColumns("orderNumber", "totalAmount", "orderStatus");
-        grid.getColumnByKey("orderNumber").setHeader("Order #");
+        grid.addColumn(Order::getOrderId).setHeader("ID").setWidth("80px").setFlexGrow(0);
 
-        // Add "Edit" Button Column
-        grid.addComponentColumn(order -> {
-            Button editBtn = new Button("Update Status");
-            editBtn.addClickListener(e -> openEditDialog(order));
-            return editBtn;
-        });
+        // Show Customer Name instead of ID
+        grid.addColumn(order -> {
+            return order.getCustomerId() != null ? "Customer #" + order.getCustomerId() : "Guest";
+        }).setHeader("Customer");
 
-        // Add "Delete" Button Column
+        grid.addColumn(Order::getTotalAmount).setHeader("Amount ($)");
+        grid.addColumn(Order::getOrderStatus).setHeader("Status");
+
         grid.addComponentColumn(order -> {
-            Button deleteBtn = new Button("Delete");
-            deleteBtn.addThemeVariants(ButtonVariant.LUMO_ERROR);
-            deleteBtn.addClickListener(e -> {
-                orderRepository.delete(order);
-                updateList();
-                Notification.show("Order Deleted", 3000, Notification.Position.BOTTOM_END);
-            });
-            return deleteBtn;
+            Button edit = new Button("Edit");
+            edit.addClickListener(e -> openEditor(order));
+            return edit;
         });
     }
 
-    private void openEditDialog(Order order) {
+    private void refreshGrid() {
+        grid.setItems(orderRepository.findAll());
+    }
+
+    private void openEditor(Order order) {
+        this.currentOrder = order;
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Update Order: " + order.getOrderNumber());
+        dialog.setHeaderTitle(order.getOrderId() == null ? "Create Order" : "Edit Order");
 
-        // Status Dropdown
-        ComboBox<String> statusSelect = new ComboBox<>("New Status");
-        statusSelect.setItems("pending", "processing", "shipped", "completed", "cancelled");
-        statusSelect.setValue(order.getOrderStatus());
+        FormLayout formLayout = new FormLayout();
 
-        // Save Button
-        Button saveButton = new Button("Save", e -> {
-            order.setOrderStatus(statusSelect.getValue());
-            orderRepository.save(order);
-            updateList();
-            dialog.close();
-            Notification.show("Status Updated!");
-        });
-        saveButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        // 1. Customer Selector (Simulated Foreign Key)
+        // Since your Order entity uses 'Long customerId' and not 'Customer customer',
+        // we use a ComboBox that lists Customers but saves the ID.
+        ComboBox<Customer> customerSelect = new ComboBox<>("Customer");
+        customerSelect.setItems(customerRepository.findAll());
+        customerSelect.setItemLabelGenerator(c -> c.getFirstName() + " " + c.getLastName());
 
-        dialog.add(new VerticalLayout(statusSelect, saveButton));
-        dialog.open();
-    }
-
-    private void configureFilter() {
-        filterText.setPlaceholder("Filter by Order Number...");
-        filterText.setClearButtonVisible(true);
-        filterText.setValueChangeMode(ValueChangeMode.LAZY);
-        filterText.addValueChangeListener(e -> updateList());
-    }
-
-    @PostConstruct
-    private void updateList() {
-        // Simple filter logic
-        String filter = filterText.getValue();
-        if (filter == null || filter.isEmpty()) {
-            grid.setItems(orderRepository.findAll());
-        } else {
-            // Note: We are reusing the findAll, in a real app use a custom query
-            grid.setItems(orderRepository.findAll().stream()
-                    .filter(o -> o.getOrderNumber().toLowerCase().contains(filter.toLowerCase()))
-                    .toList());
+        // Manual binding for ID
+        if (order.getCustomerId() != null) {
+            customerRepository.findById(order.getCustomerId()).ifPresent(customerSelect::setValue);
         }
+
+        // 2. Amount Field
+        NumberField amount = new NumberField("Total Amount");
+
+        // 3. Status Selector
+        ComboBox<String> status = new ComboBox<>("Status");
+        status.setItems("pending", "processing", "shipped", "delivered", "cancelled", "completed");
+
+        // Bindings
+        binder.forField(amount).bind(
+                o -> o.getTotalAmount() != null ? o.getTotalAmount().doubleValue() : 0.0,
+                (o, v) -> o.setTotalAmount(v)
+        );
+        binder.forField(status).bind(Order::getOrderStatus, Order::setOrderStatus);
+        binder.setBean(currentOrder);
+
+        formLayout.add(customerSelect, amount, status);
+
+        Button save = new Button("Save", e -> {
+            if (binder.validate().isOk()) {
+                // Set the ID manually from the dropdown
+                if (customerSelect.getValue() != null) {
+                    currentOrder.setCustomerId(customerSelect.getValue().getCustomerId());
+                }
+
+                // Timestamp if new
+                if (currentOrder.getCreatedAt() == null) {
+                    currentOrder.setCreatedAt(LocalDateTime.now());
+                }
+
+                orderRepository.save(currentOrder);
+                refreshGrid();
+                dialog.close();
+                Notification.show("Order Saved!");
+            }
+        });
+        save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        Button cancel = new Button("Cancel", e -> dialog.close());
+
+        // Only show delete for existing orders
+        Button delete = new Button("Delete", e -> {
+            orderRepository.delete(currentOrder);
+            refreshGrid();
+            dialog.close();
+        });
+        delete.addThemeVariants(ButtonVariant.LUMO_ERROR);
+        delete.setVisible(currentOrder.getOrderId() != null);
+
+        dialog.add(formLayout);
+        dialog.getFooter().add(delete, cancel, save);
+        dialog.open();
     }
 }
