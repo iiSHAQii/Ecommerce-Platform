@@ -4,8 +4,30 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import java.math.BigDecimal;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.repository.query.Param;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
+
+    // 1. Lazy Load ALL (No Filter)
+    @Query(value = "SELECT o FROM Order o LEFT JOIN FETCH o.customer",
+            countQuery = "SELECT count(o) FROM Order o")
+    Page<Order> findAllWithPagination(Pageable pageable);
+
+    // 2. Lazy Load WITH SEARCH (Matches your exact search logic)
+    @Query(value = "SELECT o FROM Order o LEFT JOIN FETCH o.customer " +
+            "WHERE LOWER(o.orderNumber) LIKE LOWER(CONCAT('%', :filter, '%')) " +
+            "OR LOWER(o.orderStatus) LIKE LOWER(CONCAT('%', :filter, '%')) " +
+            "OR LOWER(o.customer.firstName) LIKE LOWER(CONCAT('%', :filter, '%')) " +
+            "OR LOWER(o.customer.lastName) LIKE LOWER(CONCAT('%', :filter, '%'))",
+            countQuery = "SELECT count(o) FROM Order o LEFT JOIN o.customer " +
+                    "WHERE LOWER(o.orderNumber) LIKE LOWER(CONCAT('%', :filter, '%')) " +
+                    "OR LOWER(o.orderStatus) LIKE LOWER(CONCAT('%', :filter, '%')) " +
+                    "OR LOWER(o.customer.firstName) LIKE LOWER(CONCAT('%', :filter, '%')) " +
+                    "OR LOWER(o.customer.lastName) LIKE LOWER(CONCAT('%', :filter, '%'))")
+    Page<Order> searchWithPagination(@Param("filter") String filter, Pageable pageable);
+
 
     // --- KPI 1: REVENUE ---
     @Query(value = "SELECT COALESCE(SUM(total_amount), 0) FROM orders", nativeQuery = true)
@@ -52,4 +74,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             "FROM orders " +
             "GROUP BY size_category", nativeQuery = true)
     List<Object[]> countOrdersByValueCategory();
+
+    // This fetches the Order AND the Customer Name in one go.
+    @Query("SELECT o FROM Order o LEFT JOIN FETCH o.customer")
+    List<Order> findAllWithCustomer();
 }

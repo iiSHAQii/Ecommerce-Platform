@@ -16,7 +16,11 @@ public class Order {
     @Column(name = "customer_id")
     private Long customerId;
 
-    // REQUIRED by DB: We auto-generate this below
+    // --- NEW: Read-only link to fetch Customer Name ---
+    @ManyToOne
+    @JoinColumn(name = "customer_id", insertable = false, updatable = false)
+    private Customer customer;
+
     @Column(name = "order_number", nullable = false, unique = true)
     private String orderNumber;
 
@@ -32,15 +36,12 @@ public class Order {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    // --- AUTO-GENERATION LOGIC ---
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) createdAt = LocalDateTime.now();
-        // Generate a random unique order number if missing
         if (orderNumber == null) {
             this.orderNumber = "ORD-" + System.currentTimeMillis();
         }
-        // If subtotal is missing, just copy totalAmount to satisfy DB
         if (subtotal == null && totalAmount != null) {
             this.subtotal = totalAmount;
         }
@@ -53,16 +54,19 @@ public class Order {
     public Long getCustomerId() { return customerId; }
     public void setCustomerId(Long customerId) { this.customerId = customerId; }
 
+    // New Getter for Name Display
+    public Customer getCustomer() { return customer; }
+    public void setCustomer(Customer customer) { this.customer = customer; }
+
     public String getOrderNumber() { return orderNumber; }
     public void setOrderNumber(String orderNumber) { this.orderNumber = orderNumber; }
 
     public String getOrderStatus() { return orderStatus; }
     public void setOrderStatus(String orderStatus) { this.orderStatus = orderStatus; }
 
-    // Helper for UI (Double -> BigDecimal)
     public void setTotalAmount(Double amount) {
         this.totalAmount = BigDecimal.valueOf(amount);
-        this.subtotal = BigDecimal.valueOf(amount); // Keep subtotal in sync
+        this.subtotal = BigDecimal.valueOf(amount);
     }
 
     public BigDecimal getTotalAmount() { return totalAmount; }

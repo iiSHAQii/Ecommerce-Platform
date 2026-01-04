@@ -11,11 +11,14 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.PermitAll;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Route(value = "customers", layout = MainLayout.class)
 @PageTitle("Customers | Ecommerce ERP")
@@ -25,6 +28,7 @@ public class CustomerView extends VerticalLayout {
     private final CustomerRepository customerRepository;
     private final Grid<Customer> grid = new Grid<>(Customer.class, false);
     private final Binder<Customer> binder = new Binder<>(Customer.class);
+    private final TextField filterText = new TextField(); // Search Bar
     private Customer currentCustomer;
 
     public CustomerView(CustomerRepository customerRepository) {
@@ -33,16 +37,29 @@ public class CustomerView extends VerticalLayout {
         setSizeFull();
         configureGrid();
 
+        // --- TOOLBAR SETUP ---
+        filterText.setPlaceholder("Search by ID or Name...");
+        filterText.setClearButtonVisible(true);
+        filterText.setValueChangeMode(ValueChangeMode.LAZY);
+        filterText.setValueChangeTimeout(400);
+        // Triggers refreshGrid() when you type
+        filterText.addValueChangeListener(e -> refreshGrid());
+
         Button addBtn = new Button("Add Customer");
         addBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         addBtn.addClickListener(e -> openEditor(new Customer()));
 
-        add(addBtn, grid);
+        HorizontalLayout toolbar = new HorizontalLayout(filterText, addBtn);
+        toolbar.addClassName("toolbar");
+
+        add(toolbar, grid);
         refreshGrid();
     }
 
     private void configureGrid() {
         grid.setSizeFull();
+        // Added ID column so you can see what you are searching for
+        grid.addColumn(Customer::getCustomerId).setHeader("ID").setWidth("80px").setFlexGrow(0);
         grid.addColumn(Customer::getFirstName).setHeader("First Name");
         grid.addColumn(Customer::getLastName).setHeader("Last Name");
         grid.addColumn(Customer::getEmail).setHeader("Email");
@@ -57,10 +74,35 @@ public class CustomerView extends VerticalLayout {
     }
 
     private void refreshGrid() {
-        grid.setItems(customerRepository.findAll());
+        List<Customer> allCustomers = customerRepository.findAll();
+        String filter = filterText.getValue();
+
+        if (filter == null || filter.isEmpty()) {
+            grid.setItems(allCustomers);
+        } else {
+            String lowerCaseFilter = filter.toLowerCase();
+
+            List<Customer> filteredCustomers = allCustomers.stream()
+                    .filter(customer -> {
+                        // 1. Strict ID Match (if input is a number)
+                        boolean matchesId = String.valueOf(customer.getCustomerId()).equals(lowerCaseFilter);
+
+                        // 2. Starts With Logic (Fixed: No more random middle-of-name matches)
+                        boolean matchesFirst = customer.getFirstName().toLowerCase().startsWith(lowerCaseFilter);
+                        boolean matchesLast = customer.getLastName().toLowerCase().startsWith(lowerCaseFilter);
+
+                        // 3. Optional: Allow Email partial match? (Up to you, keeping it 'contains' is usually better for email)
+                        boolean matchesEmail = customer.getEmail().toLowerCase().contains(lowerCaseFilter);
+
+                        return matchesId || matchesFirst || matchesLast || matchesEmail;
+                    })
+                    .collect(Collectors.toList());
+
+            grid.setItems(filteredCustomers);
+        }
     }
 
-    // The Dialog Form
+    // The Dialog Form (unchanged logic)
     private void openEditor(Customer customer) {
         this.currentCustomer = customer;
         Dialog dialog = new Dialog();
@@ -89,8 +131,7 @@ public class CustomerView extends VerticalLayout {
                     boolean isNewUser = (currentCustomer.getCustomerId() == null || currentCustomer.getCustomerId() == 0L);
 
                     if (isNewUser) {
-                        // FORCE SET defaults. Don't check if they are null. Just set them.
-                        // This silences the IDE "always false" warnings.
+                        // FORCE SET defaults.
                         currentCustomer.setPasswordHash("temp_pass_123");
                         currentCustomer.setAccountStatus("active");
                         currentCustomer.setCreatedAt(LocalDateTime.now());
