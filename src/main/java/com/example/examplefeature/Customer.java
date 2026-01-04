@@ -1,7 +1,6 @@
 package com.example.examplefeature;
 
 import jakarta.persistence.*;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -11,7 +10,7 @@ public class Customer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "customer_id")
-    private Long customerId;
+    private Long customerId; // Changed to Long (Wrapper) to handle nulls correctly
 
     @Column(name = "first_name", nullable = false)
     private String firstName;
@@ -22,26 +21,21 @@ public class Customer {
     @Column(name = "email", unique = true, nullable = false)
     private String email;
 
-    // MAPPED: SQL 'phone' -> Java 'phoneNumber'
     @Column(name = "phone")
     private String phoneNumber;
 
-    // HIDDEN: Database requires this, but UI doesn't provide it.
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
+
+    // --- THIS WAS MISSING ---
+    @Column(name = "account_status")
+    private String accountStatus;
+    // ------------------------
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    // --- AUTO-GENERATION LOGIC ---
-    @PrePersist
-    protected void onCreate() {
-        if (createdAt == null) createdAt = LocalDateTime.now();
-        // Set dummy password if missing to satisfy NOT NULL constraint
-        if (passwordHash == null) passwordHash = "temp_hash_123";
-    }
-
-    // --- GETTERS & SETTERS ---
+    // --- GETTERS & SETTERS (Includes the missing ones) ---
     public Long getCustomerId() { return customerId; }
     public void setCustomerId(Long customerId) { this.customerId = customerId; }
 
@@ -59,6 +53,9 @@ public class Customer {
 
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+
+    public String getAccountStatus() { return accountStatus; }
+    public void setAccountStatus(String accountStatus) { this.accountStatus = accountStatus; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

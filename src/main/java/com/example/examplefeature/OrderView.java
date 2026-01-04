@@ -102,21 +102,27 @@ public class OrderView extends VerticalLayout {
         formLayout.add(customerSelect, amount, status);
 
         Button save = new Button("Save", e -> {
-            if (binder.validate().isOk()) {
-                // Set the ID manually from the dropdown
-                if (customerSelect.getValue() != null) {
-                    currentOrder.setCustomerId(customerSelect.getValue().getCustomerId());
-                }
+            try {
+                if (binder.validate().isOk()) {
+                    if (customerSelect.getValue() != null) {
+                        currentOrder.setCustomerId(customerSelect.getValue().getCustomerId());
+                    } else {
+                        Notification.show("Error: You must select a Customer");
+                        return;
+                    }
 
-                // Timestamp if new
-                if (currentOrder.getCreatedAt() == null) {
-                    currentOrder.setCreatedAt(LocalDateTime.now());
-                }
+                    // Auto-generate required Order Number if missing
+                    if (currentOrder.getOrderNumber() == null) {
+                        currentOrder.setOrderNumber("ORD-" + System.currentTimeMillis());
+                    }
 
-                orderRepository.save(currentOrder);
-                refreshGrid();
-                dialog.close();
-                Notification.show("Order Saved!");
+                    orderRepository.save(currentOrder);
+                    refreshGrid();
+                    dialog.close();
+                    Notification.show("Order Saved!");
+                }
+            } catch (Exception ex) {
+                Notification.show("Error: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
             }
         });
         save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);

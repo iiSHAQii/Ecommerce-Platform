@@ -15,6 +15,8 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.PermitAll;
 
+import java.time.LocalDateTime;
+
 @Route(value = "customers", layout = MainLayout.class)
 @PageTitle("Customers | Ecommerce ERP")
 @PermitAll
@@ -80,11 +82,28 @@ public class CustomerView extends VerticalLayout {
         formLayout.add(firstName, lastName, email, phone);
 
         Button save = new Button("Save", e -> {
-            if (binder.validate().isOk()) {
-                customerRepository.save(currentCustomer);
-                refreshGrid();
-                dialog.close();
-                Notification.show("Customer Saved!");
+            try {
+                if (binder.validate().isOk()) {
+
+                    // Check if this is a NEW user (ID is null or 0)
+                    boolean isNewUser = (currentCustomer.getCustomerId() == null || currentCustomer.getCustomerId() == 0L);
+
+                    if (isNewUser) {
+                        // FORCE SET defaults. Don't check if they are null. Just set them.
+                        // This silences the IDE "always false" warnings.
+                        currentCustomer.setPasswordHash("temp_pass_123");
+                        currentCustomer.setAccountStatus("active");
+                        currentCustomer.setCreatedAt(LocalDateTime.now());
+                    }
+
+                    customerRepository.save(currentCustomer);
+                    refreshGrid();
+                    dialog.close();
+                    Notification.show("Success: Customer Saved!");
+                }
+            } catch (Exception ex) {
+                Notification.show("Error: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                ex.printStackTrace();
             }
         });
         save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);

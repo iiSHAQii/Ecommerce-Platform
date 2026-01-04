@@ -32,21 +32,12 @@ public class MainLayout extends AppLayout {
     }
 
     private void createDrawer() {
-        // These are the buttons in the sidebar
-        RouterLink dashboardLink = new RouterLink("Dashboard", DashboardView.class);
-        RouterLink ordersLink = new RouterLink("Order Management", OrderView.class);
-        // Highlight logic happens automatically by Vaadin based on current URL
-
+        // Single layout with just the 3 links you need
         VerticalLayout layout = new VerticalLayout(
-                dashboardLink,
-                ordersLink
-        );
-
-        addToDrawer(layout);
-        addToDrawer(new VerticalLayout(
                 new RouterLink("Dashboard", DashboardView.class),
-                new RouterLink("Orders", OrderView.class),      // <--- NEW
-                new RouterLink("Customers", CustomerView.class) // <--- NEW
-        ));
+                new RouterLink("Order Management", OrderView.class),
+                new RouterLink("Customers", CustomerView.class)
+        );
+        addToDrawer(layout);
     }
 }
